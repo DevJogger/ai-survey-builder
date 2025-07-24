@@ -65,6 +65,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 **To get your Gemini API key:**
+
 1. Visit [Google AI Studio](https://aistudio.google.com/)
 2. Sign in with your Google account
 3. Create a new API key
@@ -106,7 +107,15 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to see the a
    - Set required/optional status
    - Configure field-specific options (max length, ranges, choices)
 
-4. **Save Survey**: Save your completed survey to generate a shareable URL
+4. **Save Survey**: Save your completed survey template locally (for demo purposes, the data is not persisted, you should implement a backend for saving data if needed)
+
+### Loading a Survey
+
+To load a previously created survey, click `Load a template` button and select a survey from the list. The application will populate the editor with the selected survey fields. Then you can edit or customize the fields as needed. (the data is not persisted, for demo purposes, there are two dummy templates initially available)
+
+### Sharing a Survey
+
+To share a survey, click `Load a template` button and click `Share` button next to the survey you want to share. This will copy the URL to your clipboard that you can share with others. They can access the survey using this URL and fill it out.
 
 ### Field Types Supported
 
@@ -146,6 +155,7 @@ demo-survey/
 Generates survey fields based on a natural language prompt.
 
 **Request Body:**
+
 ```json
 {
   "prompt": "Create a survey for post-visit feedback"
@@ -153,6 +163,7 @@ Generates survey fields based on a natural language prompt.
 ```
 
 **Response:**
+
 ```json
 [
   {
@@ -183,6 +194,7 @@ Generates survey fields based on a natural language prompt.
 ### Styling
 
 The project uses Tailwind CSS v4 with shadcn/ui components. Customize the theme by modifying:
+
 - `app/globals.css` for global styles
 - `components.json` for shadcn/ui configuration
 
