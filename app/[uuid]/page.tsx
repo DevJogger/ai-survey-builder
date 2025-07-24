@@ -2,13 +2,13 @@ import { Survey } from '@/app/page'
 import { DUMMY_DATA } from '@/lib/dummy-data'
 
 interface Props {
-  params: {
+  params: Promise<{
     uuid: string
-  }
+  }>
 }
 
 export default async function Page({ params }: Props) {
-  const { uuid } = params
+  const { uuid } = await params
 
   const surveyData = DUMMY_DATA.find((item) => item.uuid === uuid)
 
