@@ -33,6 +33,7 @@ export default function Home() {
   const [prompt, setPrompt] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [surveyData, setSurveyData] = useState<SurveyField[] | []>([])
+  const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null)
 
   const handleSubmit = async () => {
     if (isLoading || !prompt) return
@@ -81,12 +82,26 @@ export default function Home() {
   }
 
   const handleSaveTemplate = () => {
+    if (currentTemplateId) {
+      const templateIndex = DUMMY_DATA.findIndex((t) => t.uuid === currentTemplateId)
+      if (templateIndex !== -1) {
+        DUMMY_DATA[templateIndex].data = surveyData
+        alert('Template updated successfully!')
+      }
+      return
+    }
     const newTemplate = {
       uuid: uuidv4(),
       data: surveyData,
     }
-    DUMMY_DATA.push(newTemplate) // TODO: This is just for demo purpose, should save it to database instead.
+    DUMMY_DATA.push(newTemplate) // TODO: This is just for demo purpose, should save it to database
+    setCurrentTemplateId(newTemplate.uuid)
+    alert('Template saved successfully!')
+  }
+
+  const handleNewTemplate = () => {
     setSurveyData([])
+    setCurrentTemplateId(null)
   }
 
   return (
@@ -129,6 +144,7 @@ export default function Home() {
                       variant='outline'
                       onClick={() => {
                         setSurveyData(template.data)
+                        setCurrentTemplateId(template.uuid)
                       }}
                     >
                       {template.uuid}
@@ -157,11 +173,14 @@ export default function Home() {
           <div className='flex items-center justify-between'>
             <h2 className='text-xl font-semibold underline'>Survey Editor</h2>
             <div className='flex items-center gap-2'>
+              <Button variant='outline' className='cursor-pointer' onClick={handleNewTemplate}>
+                New Template
+              </Button>
               <Button variant='outline' className='cursor-pointer' onClick={handleAddField}>
                 Add New Field
               </Button>
               <Button variant='outline' className='cursor-pointer' onClick={handleSaveTemplate}>
-                Save Template
+                {currentTemplateId ? 'Update Template' : 'Save Template'}
               </Button>
             </div>
           </div>
