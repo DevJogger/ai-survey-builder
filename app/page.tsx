@@ -1,9 +1,30 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import {
   Select,
   SelectContent,
@@ -25,8 +46,8 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog'
-import { Trash } from 'lucide-react'
-import { toast } from "sonner"
+import { Trash, ArrowDownUp } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { type SurveyField } from '@/app/api/route'
 import { DUMMY_DATA } from '@/lib/dummy-data'
@@ -34,8 +55,39 @@ import { DUMMY_DATA } from '@/lib/dummy-data'
 export default function Home() {
   const [prompt, setPrompt] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [surveyData, setSurveyData] = useState<SurveyField[] | []>([])
+  const [surveyData, setSurveyData] = useState<(SurveyField & { id: string })[]>([])
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null)
+  const surveyFieldIDs = useMemo(() => surveyData.map((field) => field.id), [surveyData])
+  const [openItems, setOpenItems] = useState<string[]>(surveyFieldIDs)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (active.id !== over?.id) {
+      console.log('Reordering:', active.id, 'over:', over?.id)
+      console.log('Before reorder:', surveyFieldIDs)
+      console.log(
+        'Reordering from index:',
+        surveyFieldIDs.indexOf(active.id as string),
+        'to index:',
+        surveyFieldIDs.indexOf(over?.id as string)
+      )
+      setSurveyData(
+        arrayMove(
+          surveyData,
+          surveyFieldIDs.indexOf(active.id as string),
+          surveyFieldIDs.indexOf(over?.id as string)
+        )
+      )
+    }
+  }
 
   const handleSubmit = async () => {
     if (isLoading || !prompt) return
@@ -48,8 +100,12 @@ export default function Home() {
         },
         body: JSON.stringify({ prompt }),
       })
-      const data = await response.json()
-      setSurveyData(data)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to generate survey')
+      }
+      const data: SurveyField[] = await response.json()
+      setSurveyData(data.map((field) => ({ ...field, id: uuidv4() })))
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -60,14 +116,15 @@ export default function Home() {
     setPrompt(e.target.value)
   }
 
-  const handleFieldEdit = (index: number, field: SurveyField) => {
-    const updatedSurveyData = [...surveyData]
-    updatedSurveyData[index] = field
+  const handleFieldEdit = (id: string, field: SurveyField & { id: string }) => {
+    const updatedSurveyData = surveyData.map((item) =>
+      item.id === id ? { ...item, ...field } : item
+    )
     setSurveyData(updatedSurveyData)
   }
 
-  const handleFieldDelete = (index: number) => {
-    const updatedSurveyData = surveyData.filter((_, i) => i !== index)
+  const handleFieldDelete = (id: string) => {
+    const updatedSurveyData = surveyData.filter((item) => item.id !== id)
     setSurveyData(updatedSurveyData)
   }
 
@@ -75,6 +132,7 @@ export default function Home() {
     setSurveyData([
       ...surveyData,
       {
+        id: uuidv4(),
         fieldType: 0, // default to short text
         fieldLabel: '',
         fieldDescription: '',
@@ -104,6 +162,10 @@ export default function Home() {
   const handleNewTemplate = () => {
     setSurveyData([])
     setCurrentTemplateId(null)
+  }
+
+  const handleAccordionToggle = (id: string) => {
+    setOpenItems((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
   }
 
   return (
@@ -147,6 +209,7 @@ export default function Home() {
                         variant='outline'
                         onClick={() => {
                           setSurveyData(template.data)
+                          setOpenItems(template.data.map((field) => field.id))
                           setCurrentTemplateId(template.uuid)
                         }}
                       >
@@ -190,19 +253,34 @@ export default function Home() {
               </Button>
             </div>
           </div>
-          <div className='mt-8 flex flex-1 flex-col gap-8 overflow-y-auto p-4'>
-            {surveyData &&
-              surveyData.map((field, index) => (
-                <FieldEditor
-                  key={index}
-                  onFieldEdit={(field: SurveyField) => {
-                    handleFieldEdit(index, field)
-                  }}
-                  onFieldDelete={() => handleFieldDelete(index)}
-                  data={field}
-                />
-              ))}
-          </div>
+          <Accordion
+            type='multiple'
+            className='mt-4 flex flex-1 flex-col gap-4 overflow-y-auto p-4'
+            value={openItems}
+            onValueChange={(newOpenItems) => setOpenItems(newOpenItems)}
+          >
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+              modifiers={[restrictToVerticalAxis]}
+            >
+              <SortableContext items={surveyFieldIDs} strategy={verticalListSortingStrategy}>
+                {surveyData &&
+                  surveyData.map((field) => (
+                    <FieldEditor
+                      key={field.id}
+                      data={field}
+                      onFieldEdit={(field) => {
+                        handleFieldEdit(field.id, field)
+                      }}
+                      onFieldDelete={() => handleFieldDelete(field.id)}
+                      handleToggle={handleAccordionToggle}
+                    />
+                  ))}
+              </SortableContext>
+            </DndContext>
+          </Accordion>
         </aside>
         <aside className='bg-muted flex-1 overflow-y-auto p-8'>
           <h2 className='text-xl font-semibold underline'>Preview</h2>
@@ -216,143 +294,170 @@ export default function Home() {
 }
 
 interface FieldEditorProps {
-  data: SurveyField
-  onFieldEdit: (field: SurveyField) => void
+  data: SurveyField & { id: string }
+  onFieldEdit: (field: SurveyField & { id: string }) => void
   onFieldDelete: () => void
+  handleToggle: (id: string) => void
 }
-function FieldEditor({ data, onFieldEdit, onFieldDelete }: FieldEditorProps) {
+function FieldEditor({ data, onFieldEdit, onFieldDelete, handleToggle }: FieldEditorProps) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: data.id })
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transition,
+  }
   return (
-    <div className='border-foreground/50 relative flex flex-col gap-2 rounded-md border p-4'>
-      <Trash
-        className='absolute top-4 right-4 size-4 cursor-pointer transition-colors hover:text-red-500'
-        onClick={onFieldDelete}
-      />
-      <Label className='text-sm font-medium'>Question</Label>
-      <Input
-        value={data.fieldLabel || ''}
-        onChange={(e) => {
-          onFieldEdit({
-            ...data,
-            fieldLabel: e.target.value,
-          })
-        }}
-      />
-      <Label className='text-sm font-medium'>Type</Label>
-      <FieldTypeSelector
-        fieldType={data.fieldType}
-        onChange={(value) => {
-          onFieldEdit({
-            ...data,
-            fieldType: value,
-          })
-        }}
-      />
-      <Label className='text-sm font-medium'>Description</Label>
-      <Input
-        className='border-muted border p-2'
-        value={data.fieldDescription || ''}
-        name='fieldDescription'
-        onChange={(e) => {
-          onFieldEdit({
-            ...data,
-            fieldDescription: e.target.value,
-          })
-        }}
-      />
-      <Label className='text-sm font-medium'>Required?</Label>
-      <Switch
-        checked={data.requiredField}
-        onCheckedChange={(checked) => {
-          onFieldEdit({
-            ...data,
-            requiredField: checked,
-          })
-        }}
-      />
-      {/* short text field need maximum length */}
-      {data.fieldType === 0 && (
-        <>
-          <Label className='text-sm font-medium'>Maximum Length</Label>
-          <Input
-            className='border-muted border p-2'
-            value={data.maximumLength?.toString() || ''}
-            name='maximumLength'
-            onChange={(e) => {
-              const value = e.target.value
-              onFieldEdit({
-                ...data,
-                maximumLength: Number(value) || undefined,
-              })
-            }}
-          />
-        </>
-      )}
-      {/* number field need range */}
-      {data.fieldType === 2 && (
-        <>
-          <Label className='text-sm font-medium'>Range</Label>
-          <div className='flex items-center gap-2'>
-            <Input
-              className='border-muted border p-2'
-              value={data.range?.[0]?.toString() || ''}
-              name='rangeMin'
-              onChange={(e) => {
-                const value = e.target.value
-                onFieldEdit({
-                  ...data,
-                  range: [Number(value) || 0, data.range?.[1] || 100],
-                })
-              }}
-            />
-            -
-            <Input
-              className='border-muted border p-2'
-              value={data.range?.[1]?.toString() || ''}
-              name='rangeMax'
-              onChange={(e) => {
-                const value = e.target.value
-                onFieldEdit({
-                  ...data,
-                  range: [data.range?.[0] || 0, Number(value) || 100],
-                })
-              }}
-            />
+    <AccordionItem
+      ref={setNodeRef}
+      style={style}
+      className='border-secondary bg-background z-10 rounded-[0.5rem] border'
+      value={data.id}
+    >
+      <AccordionTrigger className='px-4 hover:no-underline' onClick={() => handleToggle(data.id)}>
+        <div className='flex items-center gap-2'>
+          <div
+            className='text-foreground cursor-grab transition-all hover:scale-125'
+            {...attributes}
+            {...listeners}
+          >
+            <ArrowDownUp className='size-4 shrink-0' />
           </div>
-        </>
-      )}
-      {/* multiple choice and dropdown field need options */}
-      {(data.fieldType === 4 || data.fieldType === 5) && (
-        <>
-          <Label className='text-sm font-medium'>Options (comma separated)</Label>
+          <Trash
+            className='size-4 shrink-0 cursor-pointer transition-all hover:scale-125 hover:text-red-500'
+            onClick={onFieldDelete}
+          />
+          <span className=''>{data.fieldLabel}</span>
+        </div>
+      </AccordionTrigger>
+      <AccordionContent className='p-4'>
+        <div className='bg-muted/50 flex flex-col gap-2 rounded-md p-4'>
+          <Label className='text-sm font-medium'>Question</Label>
           <Input
-            className='border-muted border p-2'
-            value={data.options?.join(', ') || ''}
-            name='options'
+            value={data.fieldLabel || ''}
             onChange={(e) => {
-              const options = e.target.value.split(',').map((opt) => opt.trim())
               onFieldEdit({
                 ...data,
-                options: options.length > 1 ? options : undefined,
+                fieldLabel: e.target.value,
               })
             }}
           />
-          {data.fieldType === 4 && (
+          <Label className='text-sm font-medium'>Type</Label>
+          <FieldTypeSelector
+            fieldType={data.fieldType}
+            onChange={(value) => {
+              onFieldEdit({
+                ...data,
+                fieldType: value,
+              })
+            }}
+          />
+          <Label className='text-sm font-medium'>Description</Label>
+          <Input
+            className='border-muted border p-2'
+            value={data.fieldDescription || ''}
+            name='fieldDescription'
+            onChange={(e) => {
+              onFieldEdit({
+                ...data,
+                fieldDescription: e.target.value,
+              })
+            }}
+          />
+          <Label className='text-sm font-medium'>Required?</Label>
+          <Switch
+            checked={data.requiredField}
+            onCheckedChange={(checked) => {
+              onFieldEdit({
+                ...data,
+                requiredField: checked,
+              })
+            }}
+          />
+          {/* short text field need maximum length */}
+          {data.fieldType === 0 && (
             <>
-              <Label className='text-sm font-medium'>Allow Multiple Selection</Label>
-              <Switch
-                checked={data.allowMultipleSelection || false}
-                onCheckedChange={(checked) => {
+              <Label className='text-sm font-medium'>Maximum Length</Label>
+              <Input
+                className='border-muted border p-2'
+                value={data.maximumLength?.toString() || ''}
+                name='maximumLength'
+                onChange={(e) => {
+                  const value = e.target.value
                   onFieldEdit({
                     ...data,
-                    allowMultipleSelection: checked,
+                    maximumLength: Number(value) || undefined,
                   })
                 }}
               />
             </>
           )}
-        </>
-      )}
-    </div>
+          {/* number field need range */}
+          {data.fieldType === 2 && (
+            <>
+              <Label className='text-sm font-medium'>Range</Label>
+              <div className='flex items-center gap-2'>
+                <Input
+                  className='border-muted border p-2'
+                  value={data.range?.[0]?.toString() || ''}
+                  name='rangeMin'
+                  onChange={(e) => {
+                    const value = e.target.value
+                    onFieldEdit({
+                      ...data,
+                      range: [Number(value) || 0, data.range?.[1] || 100],
+                    })
+                  }}
+                />
+                -
+                <Input
+                  className='border-muted border p-2'
+                  value={data.range?.[1]?.toString() || ''}
+                  name='rangeMax'
+                  onChange={(e) => {
+                    const value = e.target.value
+                    onFieldEdit({
+                      ...data,
+                      range: [data.range?.[0] || 0, Number(value) || 100],
+                    })
+                  }}
+                />
+              </div>
+            </>
+          )}
+          {/* multiple choice and dropdown field need options */}
+          {(data.fieldType === 4 || data.fieldType === 5) && (
+            <>
+              <Label className='text-sm font-medium'>Options (comma separated)</Label>
+              <Input
+                className='border-muted border p-2'
+                value={data.options?.join(', ') || ''}
+                name='options'
+                onChange={(e) => {
+                  const options = e.target.value.split(',').map((opt) => opt.trim())
+                  onFieldEdit({
+                    ...data,
+                    options: options.length > 1 ? options : undefined,
+                  })
+                }}
+              />
+              {data.fieldType === 4 && (
+                <>
+                  <Label className='text-sm font-medium'>Allow Multiple Selection</Label>
+                  <Switch
+                    checked={data.allowMultipleSelection || false}
+                    onCheckedChange={(checked) => {
+                      onFieldEdit({
+                        ...data,
+                        allowMultipleSelection: checked,
+                      })
+                    }}
+                  />
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </AccordionContent>
+    </AccordionItem>
   )
 }
 
@@ -380,14 +485,14 @@ function FieldTypeSelector({ fieldType, onChange }: FieldTypeSelectorProps) {
 }
 
 interface SurveyProps {
-  data: SurveyField[]
+  data: (SurveyField & { id: string })[]
 }
 
 export function Survey({ data }: SurveyProps) {
   return (
     <div className='flex flex-col gap-4'>
-      {data.map((field, index) => (
-        <SurveyField key={index} {...field} />
+      {data.map((field) => (
+        <SurveyField key={field.id} {...field} />
       ))}
     </div>
   )
