@@ -58,7 +58,7 @@ export default function Home() {
   const [surveyData, setSurveyData] = useState<(SurveyField & { id: string })[]>([])
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null)
   const surveyFieldIDs = useMemo(() => surveyData.map((field) => field.id), [surveyData])
-  const [openItems, setOpenItems] = useState<string[]>(surveyFieldIDs)
+  const [openAccordions, setOpenAccordions] = useState<string[]>(surveyFieldIDs)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -71,14 +71,6 @@ export default function Home() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     if (active.id !== over?.id) {
-      console.log('Reordering:', active.id, 'over:', over?.id)
-      console.log('Before reorder:', surveyFieldIDs)
-      console.log(
-        'Reordering from index:',
-        surveyFieldIDs.indexOf(active.id as string),
-        'to index:',
-        surveyFieldIDs.indexOf(over?.id as string)
-      )
       setSurveyData(
         arrayMove(
           surveyData,
@@ -105,7 +97,9 @@ export default function Home() {
         throw new Error(errorData.error || 'Failed to generate survey')
       }
       const data: SurveyField[] = await response.json()
-      setSurveyData(data.map((field) => ({ ...field, id: uuidv4() })))
+      const surveyData = data.map((field) => ({ ...field, id: uuidv4() }))
+      setSurveyData(surveyData)
+      setOpenAccordions(surveyData.map((field) => field.id))
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -129,16 +123,18 @@ export default function Home() {
   }
 
   const handleAddField = () => {
+    const id = uuidv4()
     setSurveyData([
       ...surveyData,
       {
-        id: uuidv4(),
+        id,
         fieldType: 0, // default to short text
         fieldLabel: '',
         fieldDescription: '',
         requiredField: false,
       },
     ])
+    setOpenAccordions((prev) => [...prev, id])
   }
 
   const handleSaveTemplate = () => {
@@ -165,7 +161,9 @@ export default function Home() {
   }
 
   const handleAccordionToggle = (id: string) => {
-    setOpenItems((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
+    setOpenAccordions((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
   }
 
   return (
@@ -209,7 +207,7 @@ export default function Home() {
                         variant='outline'
                         onClick={() => {
                           setSurveyData(template.data)
-                          setOpenItems(template.data.map((field) => field.id))
+                          setOpenAccordions(template.data.map((field) => field.id))
                           setCurrentTemplateId(template.uuid)
                         }}
                       >
@@ -256,8 +254,8 @@ export default function Home() {
           <Accordion
             type='multiple'
             className='mt-4 flex flex-1 flex-col gap-4 overflow-y-auto p-4'
-            value={openItems}
-            onValueChange={(newOpenItems) => setOpenItems(newOpenItems)}
+            value={openAccordions}
+            onValueChange={(newOpenItems) => setOpenAccordions(newOpenItems)}
           >
             <DndContext
               sensors={sensors}
