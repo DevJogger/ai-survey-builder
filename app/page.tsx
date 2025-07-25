@@ -26,6 +26,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog'
 import { Trash } from 'lucide-react'
+import { toast } from "sonner"
 import { cn } from '@/lib/utils'
 import { type SurveyField } from '@/app/api/route'
 import { DUMMY_DATA } from '@/lib/dummy-data'
@@ -87,7 +88,7 @@ export default function Home() {
       const templateIndex = DUMMY_DATA.findIndex((t) => t.uuid === currentTemplateId)
       if (templateIndex !== -1) {
         DUMMY_DATA[templateIndex].data = surveyData
-        alert('Template updated successfully!')
+        toast('Template updated successfully!')
       }
       return
     }
@@ -97,7 +98,7 @@ export default function Home() {
     }
     DUMMY_DATA.push(newTemplate) // TODO: This is just for demo purpose, should save it to database
     setCurrentTemplateId(newTemplate.uuid)
-    alert('Template saved successfully!')
+    toast('Template saved successfully!')
   }
 
   const handleNewTemplate = () => {
@@ -159,7 +160,7 @@ export default function Home() {
                           const url = `${window.location.origin}/${template.uuid}`
                           // copy the template uuid to clipboard
                           navigator.clipboard.writeText(url).then(() => {
-                            alert('Template URL copied to clipboard!')
+                            toast('Template URL copied to clipboard!')
                           })
                         }}
                       >
