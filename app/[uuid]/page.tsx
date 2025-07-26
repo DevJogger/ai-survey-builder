@@ -1,4 +1,4 @@
-import { Survey } from '@/app/page'
+import { SurveyPreview } from '@/components/survey'
 import { DUMMY_DATA } from '@/lib/dummy-data'
 
 interface Props {
@@ -15,7 +15,7 @@ export default async function Page({ params }: Props) {
   if (surveyData) {
     return (
       <main className='flex min-h-screen flex-col items-center justify-center p-4'>
-        <Survey data={surveyData.data} />
+        <SurveyPreview data={surveyData.data} />
       </main>
     )
   }
