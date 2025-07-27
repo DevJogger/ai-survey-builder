@@ -6,10 +6,12 @@ An intelligent survey generation tool that uses Google's Gemini AI to create cus
 
 - 🤖 **AI-Powered Survey Generation**: Generate survey forms using natural language prompts
 - 📋 **Multiple Field Types**: Support for various input types including text, numbers, ratings, multiple choice, and more
-- ✏️ **Interactive Editor**: Edit and customize generated survey fields
+- ✏️ **Interactive Editor**: Edit and customize generated survey fields with drag-and-drop reordering
 - 📱 **Responsive Design**: Mobile-friendly interface built with Tailwind CSS
 - 🎨 **Modern UI**: Built with shadcn/ui components and Radix UI primitives
 - 🔗 **Shareable Surveys**: Generate unique URLs for each survey
+- 🧩 **Modular Architecture**: Clean component structure for easy maintenance and customization
+- 🔄 **Real-time Preview**: See changes instantly as you edit survey fields
 
 ## Tech Stack
 
@@ -139,13 +141,76 @@ demo-survey/
 │   │   └── getGeminiParams.ts
 │   ├── globals.css      # Global styles
 │   ├── layout.tsx       # Root layout
-│   └── page.tsx         # Home page with survey builder
+│   └── page.tsx         # Main page
 ├── components/
+│   ├── survey/          # Survey-related components
+│   │   ├── SurveyGenerator.tsx    # AI survey generation component
+│   │   ├── TemplateDialog.tsx     # Template selection dialog
+│   │   ├── SurveyEditor.tsx       # Survey editing interface
+│   │   ├── FieldEditor.tsx        # Individual field editor
+│   │   ├── FieldTypeSelector.tsx  # Field type selection dropdown
+│   │   ├── SurveyPreview.tsx      # Survey preview component
+│   │   ├── SurveyField.tsx        # Individual survey field renderer
+│   │   └── index.ts               # Component exports
 │   └── ui/              # shadcn/ui components
 ├── lib/
 │   ├── dummy-data.ts    # Sample survey data
 │   └── utils.ts         # Utility functions
 └── public/              # Static assets
+```
+
+## Component Architecture
+
+The application has been refactored into modular, reusable components for better maintainability:
+
+### Core Components
+
+- **`SurveyGenerator`**: Handles AI-powered survey generation from natural language prompts
+- **`TemplateDialog`**: Manages template selection and sharing functionality
+- **`SurveyEditor`**: Main editing interface with drag-and-drop field management
+- **`FieldEditor`**: Individual field editing with type-specific configuration options
+- **`FieldTypeSelector`**: Dropdown for selecting different field types
+- **`SurveyPreview`**: Real-time preview of the survey as users would see it
+- **`SurveyField`**: Renders individual survey fields based on their type
+
+### Component Relationships
+
+```
+Home Page (app/page.tsx)
+├── SurveyGenerator
+├── TemplateDialog
+├── SurveyEditor
+│   ├── FieldEditor (multiple instances)
+│   │   └── FieldTypeSelector
+│   └── Drag & Drop Context
+└── SurveyPreview
+    └── SurveyField (multiple instances)
+```
+
+All survey components are exported from `components/survey/index.ts` for clean imports.
+
+## Development Notes
+
+### Recent Refactoring (v2.0)
+
+The application has been completely refactored from a monolithic structure to a modular component-based architecture:
+
+- **Before**: All functionality was contained in a single 500+ line `page.tsx` file
+- **After**: Functionality is split into focused, reusable components in the `components/survey/` directory
+
+### Benefits of the New Structure
+
+- **Maintainability**: Each component has a single responsibility
+- **Reusability**: Components can be easily reused across different parts of the application
+- **Testing**: Individual components can be tested in isolation
+- **Collaboration**: Multiple developers can work on different components simultaneously
+- **Code Organization**: Related functionality is grouped together
+
+### Import Structure
+
+```typescript
+// Clean imports from the index file
+import { SurveyGenerator, TemplateDialog, SurveyEditor, SurveyPreview } from '@/components/survey'
 ```
 
 ## API Endpoints
@@ -187,9 +252,19 @@ Generates survey fields based on a natural language prompt.
 ### Adding New Field Types
 
 1. Update the `SurveyField` interface in `app/api/route.ts`
-2. Add the new field type to the `FieldTypeSelector` component
-3. Implement the field rendering in the `SurveyField` component
-4. Update the AI prompt schema in `getGeminiParams.ts`
+2. Add the new field type to the `FieldTypeSelector` component (`components/survey/FieldTypeSelector.tsx`)
+3. Implement the field rendering in the `SurveyField` component (`components/survey/SurveyField.tsx`)
+4. Add field-specific editing options in the `FieldEditor` component (`components/survey/FieldEditor.tsx`)
+5. Update the AI prompt schema in `getGeminiParams.ts`
+
+### Modifying Components
+
+The modular component structure makes it easy to customize specific parts:
+
+- **Survey Generation**: Modify `SurveyGenerator.tsx` to change the AI prompt interface
+- **Field Editing**: Update `FieldEditor.tsx` to add new field configuration options
+- **Preview Display**: Customize `SurveyField.tsx` to change how fields are rendered
+- **Template Management**: Modify `TemplateDialog.tsx` to change template selection behavior
 
 ### Styling
 
@@ -197,6 +272,7 @@ The project uses Tailwind CSS v4 with shadcn/ui components. Customize the theme 
 
 - `app/globals.css` for global styles
 - `components.json` for shadcn/ui configuration
+- Individual component files for component-specific styles
 
 ## Contributing
 
